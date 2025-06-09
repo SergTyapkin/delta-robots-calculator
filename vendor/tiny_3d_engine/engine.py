@@ -290,6 +290,7 @@ class Engine3D:
 
     def __keypress(self, event):
         """handler for keyboard events"""
+        print(event.keysym, event.keycode)
         userKeyHandler = self.keyHandlers.get(event.keysym)
         if userKeyHandler is not None:
             userKeyHandler(event)

@@ -114,6 +114,5 @@ class ViewField:
     def _recalculatePoints(self):
         def rotate3D(p, matrix):
             return np.array((np.array(p) * matrix).tolist()[0])
-        print(self.rotatingMatrix, self.translationVector)
         self.pts = np.array(list(map(lambda p: rotate3D(p, self.rotatingMatrix), self._initialPts)))
         self.pts = np.array(list(map(lambda p: p + self.translationVector, self.pts)))

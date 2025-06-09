@@ -1,4 +1,6 @@
-tmp
+tmp*
+out*
+profile_output*
 plots_out
 
 # Byte-compiled / optimized / DLL files

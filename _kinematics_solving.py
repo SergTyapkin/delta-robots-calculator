@@ -1,5 +1,8 @@
 from sympy import symbols, sqrt, atan, cos, sin, tan, pi
 import math
+from line_profiler import profile
+import os
+os.environ["LINE_PROFILE"] = "0" # Enable or disable line_profiler
 
 # SymPy prettified
 tan30 = symbols('tan30')
@@ -8,7 +11,7 @@ sin30 = symbols('sin30')
 cos120 = -1/2
 cosMinus120 = -1/2
 sin120 = symbols('sqrt(3)') / 2
-sinMinus120 = symbols('sqrt(3)') / 2
+sinMinus120 = -symbols('sqrt(3)') / 2
 
 # Numbered
 # tan30 = tan(30 / 180 * pi)
@@ -25,6 +28,7 @@ sinMinus120 = symbols('sqrt(3)') / 2
 # E - сторона платформы (нижней плиты)
 # LF - длина плеча (верхней перемычки)
 # LE - длина рычага (нижней перемычки)
+@profile
 def straight_kinematics(theta_1, theta_2, theta_3, F, E, LF, LE):
     t = (F - E) * tan30 / 2
 
@@ -120,6 +124,7 @@ def rotate2D(x, y, degrees, x0=0, y0=0):
 # E - сторона платформы (нижней плиты)
 # LF - длина плеча (верхней перемычки)
 # LE - длина рычага (нижней перемычки)
+@profile
 def inverse_kinematics(x, y, z, F, E, LF, LE):
     theta_1 = _calcAngleYZ(x, y, z, F, E, LF, LE)
     # theta_2 = _calcAngleYZ(*rotate2D(x, y, 120), z, F, E, LF, LE)  # rotate coords to +120 deg
@@ -169,6 +174,7 @@ if __name__ == '__main__':
 
     # -------- SPEEDS
     vx, vy, vz = symbols('vx, vy, vz')
+    @profile
     def calc_inverse_speeds():
         def calc_anal_speed(t_anal):
             t_anal_dx = t_anal.diff(x)
@@ -212,19 +218,21 @@ if __name__ == '__main__':
     ax, ay, az = symbols('ax, ay, az')
     def calc_inverse_accelerations():
         def calc_anal_acceleration(w_anal):
-            w_anal_dvx = w_anal.diff(x)
-            w_anal_dvy = w_anal.diff(y)
-            w_anal_dvz = w_anal.diff(z)
+            w_anal_dvx = w_anal.diff(x, 2)
+            w_anal_dvy = w_anal.diff(y, 2)
+            w_anal_dvz = w_anal.diff(z, 2)
             return w_anal_dvx * ax + w_anal_dvy * ay + w_anal_dvz * az
 
-        e1 = calc_anal_acceleration(w1_anal)
-        e2 = calc_anal_acceleration(w2_anal)
-        e3 = calc_anal_acceleration(w3_anal)
+        e1 = calc_anal_acceleration(t1_anal)
+        e2 = calc_anal_acceleration(t2_anal)
+        e3 = calc_anal_acceleration(t3_anal)
         print("")
         print("Inverse accelerations:")
-        print("e1 =", e1)
-        print("e2 =", e2)
-        print("e3 =", e3)
+        with open('./out-inverse.txt', 'w') as f:
+            f.write(str(e1) + ', \\\n')
+            f.write('           ' + str(e2) + ', \\\n')
+            f.write('           ' + str(e3) + '\n')
+        print("Written to ./out-inverse.txt")
         return e1, e2, e3
 
 
@@ -232,20 +240,23 @@ if __name__ == '__main__':
     e1, e2, e3 = symbols('e1, e2, e3')
     def calc_straight_accelerations():
         def calc_anal_acceleration(coord_anal):
-            coord_anal_dw1 = coord_anal.diff(t1)
-            coord_anal_dw2 = coord_anal.diff(t2)
-            coord_anal_dw3 = coord_anal.diff(t3)
+            coord_anal_dw1 = coord_anal.diff(t1, 2)
+            coord_anal_dw2 = coord_anal.diff(t2, 2)
+            coord_anal_dw3 = coord_anal.diff(t3, 2)
             return coord_anal_dw1 * e1 + coord_anal_dw2 * e2 + coord_anal_dw3 * e3
 
-        ax = calc_anal_acceleration(vx_anal)
-        ay = calc_anal_acceleration(vy_anal)
-        az = calc_anal_acceleration(vz_anal)
+        ax = calc_anal_acceleration(x_anal)
+        ay = calc_anal_acceleration(y_anal)
+        az = calc_anal_acceleration(z_anal)
+
         print("")
         print("Straight accelerations:")
-        print("ax =", ax)
-        print("ay =", ay)
-        print("az =", az)
+        with open('./out-straight.txt', 'w') as f:
+            f.write(str(ax) + ', \\\n')
+            f.write('           ' + str(ay) + ', \\\n')
+            f.write('           ' + str(az) + '\n')
+        print("Written to ./out-straight.txt")
         return ax, ay, az
 
-    # e1_anal, e2_anal, e3_anal = calc_inverse_accelerations()
+    e1_anal, e2_anal, e3_anal = calc_inverse_accelerations()
     ax_anal, ay_anal, az_anal = calc_straight_accelerations()

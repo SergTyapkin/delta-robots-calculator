@@ -144,27 +144,35 @@ class Scene3D:
                 + color)
         self._data[name]["color"] = color
 
-    def add_axes(self):
+    def add_axes(self, type="box"):
         """add axes to the scene."""
 
         self.del_part("axis")
 
         (self.min, self.max) = comp_min_max(self.points())
-        # if self.max is None or self.min is None:
-        #     return
+        if self.max is None or self.min is None:
+            return
 
-        str_fmt = "{:.5g}m"
+        str_fmt = "{:.3g}m"
 
         shift = 0.1*(self.max - self.min)
+        axesPos = [0, 0, 0]
+        if type == "box":
+            axesPos = self.min
+        elif type == "center":
+            axesPos = (self.max + self.min) / 2
+        elif type == "zero":
+            axesPos = [0, 0, 0]
+
         ax_x = Part3D()
         start = [
-            self.min[0],
-            self.min[1] - shift[1],
-            self.min[2] - shift[2]]
+            self.min[0] - shift[0],
+            axesPos[1],
+            axesPos[2]]
         end = [
-            self.max[0],
-            self.min[1] - shift[1],
-            self.min[2] - shift[2]]
+            self.max[0] + shift[0],
+            axesPos[1],
+            axesPos[2]]
         title = ('axis.x_'
             + str_fmt.format(self.min[0])
             + "_" + str_fmt.format(self.max[0]))
@@ -174,13 +182,13 @@ class Scene3D:
 
         ax_y = Part3D()
         start = [
-            self.min[0] - shift[0],
-            self.min[1],
-            self.min[2] - shift[2]]
+            axesPos[0],
+            self.min[1] - shift[1],
+            axesPos[2]]
         end = [
-            self.min[0] - shift[0],
-            self.max[1],
-            self.min[2] - shift[2]]
+            axesPos[0],
+            self.max[1] + shift[1],
+            axesPos[2]]
         title = (
             'axis.y_'
             + str_fmt.format(self.min[1])
@@ -190,17 +198,17 @@ class Scene3D:
             title, ax_y.points, ax_y.conn, color="#00ff00")
 
         start = [
-            self.min[0] - shift[0],
-            self.min[1] - shift[1],
-            self.min[2]]
+            axesPos[0],
+            axesPos[1],
+            self.min[2] - shift[2]]
         end = [
-            self.min[0] - shift[0],
-            self.min[1] - shift[1],
-            self.max[2]]
+            axesPos[0],
+            axesPos[1],
+            self.max[2] + shift[2]]
         title = (
             'axis.z_'
             + str_fmt.format(self.min[2])
-            + "_|_" + str_fmt.format(self.max[2]))
+            + "_" + str_fmt.format(self.max[2]))
         ax_z = Part3D()
         ax_z.add_line(start, end, 10)
         self.update(
