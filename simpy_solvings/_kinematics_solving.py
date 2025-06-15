@@ -228,7 +228,7 @@ if __name__ == '__main__':
         e3 = calc_anal_acceleration(t3_anal)
         print("")
         print("Inverse accelerations:")
-        with open('./out-inverse.txt', 'w') as f:
+        with open('../out-inverse.txt', 'w') as f:
             f.write(str(e1) + ', \\\n')
             f.write('           ' + str(e2) + ', \\\n')
             f.write('           ' + str(e3) + '\n')
@@ -251,7 +251,7 @@ if __name__ == '__main__':
 
         print("")
         print("Straight accelerations:")
-        with open('./out-straight.txt', 'w') as f:
+        with open('../out-straight.txt', 'w') as f:
             f.write(str(ax) + ', \\\n')
             f.write('           ' + str(ay) + ', \\\n')
             f.write('           ' + str(az) + '\n')

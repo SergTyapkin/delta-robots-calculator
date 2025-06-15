@@ -1,3 +1,4 @@
+import sys
 from dataclasses import dataclass
 from math import *
 
@@ -5,6 +6,7 @@ from src.acceleration_kinematics import straight_acceleration_kinematics
 from src.speed_kinematics import straight_speed_kinematics
 from vendor.tiny_3d_engine.scene3d import Scene3D
 from vendor.tiny_3d_engine.engine import Engine3D
+from threading import Thread
 import numpy as np
 
 from src.kinematics import straight_kinematics, inverse_kinematics
@@ -77,11 +79,11 @@ class UI:
         ACCELERATION_DELTA = 0.1
         POSITION_DELTA = 0.1
         self.engine = Engine3D(self.scene, background="#1e1f22", shading="radial", keyHandlers={
-            "!": lambda _: self.setAngles(self.State.t1 + ANGLE_DELTA, self.State.t2, self.State.t3),
+            "exclam": lambda _: self.setAngles(self.State.t1 + ANGLE_DELTA, self.State.t2, self.State.t3),
             "1": lambda _: self.setAngles(self.State.t1 - ANGLE_DELTA, self.State.t2, self.State.t3),
-            "@": lambda _: self.setAngles(self.State.t1, self.State.t2 + ANGLE_DELTA, self.State.t3),
+            "at": lambda _: self.setAngles(self.State.t1, self.State.t2 + ANGLE_DELTA, self.State.t3),
             "2": lambda _: self.setAngles(self.State.t1, self.State.t2 - ANGLE_DELTA, self.State.t3),
-            "#": lambda _: self.setAngles(self.State.t1, self.State.t2, self.State.t3 + ANGLE_DELTA),
+            "numbersign": lambda _: self.setAngles(self.State.t1, self.State.t2, self.State.t3 + ANGLE_DELTA),
             "3": lambda _: self.setAngles(self.State.t1, self.State.t2, self.State.t3 - ANGLE_DELTA),
 
             "Q": lambda _: self.setSpeeds(self.State.w1 + SPEED_DELTA, self.State.w2, self.State.w3),
@@ -198,26 +200,27 @@ class UI:
 
     # ---- AXIS
     def addAxes(self):
-        self.scene.add_axes('zero')
+        # self.scene.add_axes('zero')
         # Create my own axes
-        # self.addLineByPoints(
-        #     "Z-axis",
-        #     [0, 0, 0.5],
-        #     [0, 0, -1],
-        #     "#0000ff",
-        # )
-        # self.addLineByPoints(
-        #     "Y-axis",
-        #     [0, -0.5, 0],
-        #     [0, 1, 0],
-        #     "#00ff00",
-        # )
-        # self.addLineByPoints(
-        #     "X-axis",
-        #     [-0.5, 0, 0],
-        #     [1, 0, 0],
-        #     "#ff0000",
-        # )
+        axesLength = 1.5
+        self.addLineByPoints(
+            "Z-axis",
+            [0, 0, 1],
+            [0, 0, -axesLength],
+            "#0000ff",
+        )
+        self.addLineByPoints(
+            "Y-axis",
+            [0, -axesLength, 0],
+            [0, axesLength, 0],
+            "#00ff00",
+        )
+        self.addLineByPoints(
+            "X-axis",
+            [-axesLength, 0, 0],
+            [axesLength, 0, 0],
+            "#ff0000",
+        )
 
     # ---- GEOMETRY
     def calculateDeltaRobotPoints(self, F, E, Lf, Le, theta1, theta2, theta3):
@@ -281,35 +284,41 @@ class UI:
             f"BottomBase_x:{round(self.points.E.center[0], 2)}_y:{round(self.points.E.center[1], 2)}_z:{round(self.points.E.center[2], 2)}",
             self.points.E, BOTTOM_BASE_COLOR)
 
+        wSizeFactor = 3
         self.addLineByPoints(f"w1_{round(self.State.w1, 2)}", self.points.LF1.start,
-                             self.points.LF1.start + [0, 0, -self.State.w1],
+                             self.points.LF1.start + [0, 0, -self.State.w1 * wSizeFactor],
                              SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
         self.addLineByPoints(f"w2_{round(self.State.w2, 2)}", self.points.LF2.start,
-                             self.points.LF2.start + [0, 0, -self.State.w2],
+                             self.points.LF2.start + [0, 0, -self.State.w2 * wSizeFactor],
                              SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
         self.addLineByPoints(f"w3_{round(self.State.w3, 2)}", self.points.LF3.start,
-                             self.points.LF3.start + [0, 0, -self.State.w3],
+                             self.points.LF3.start + [0, 0, -self.State.w3 * wSizeFactor],
                              SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
 
+        eSizeFactor = 5
         self.addLineByPoints(f"e1_{round(self.State.e1, 2)}", self.points.LF1.start,
-                             self.points.LF1.start + [0, 0, -self.State.e1],
+                             self.points.LF1.start + [0, 0, -self.State.e1 * eSizeFactor],
                              ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
         self.addLineByPoints(f"e2_{round(self.State.e2, 2)}", self.points.LF2.start,
-                             self.points.LF2.start + [0, 0, -self.State.e2],
+                             self.points.LF2.start + [0, 0, -self.State.e2 * eSizeFactor],
                              ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
         self.addLineByPoints(f"e3_{round(self.State.e3, 2)}", self.points.LF3.start,
-                             self.points.LF3.start + [0, 0, -self.State.e3],
+                             self.points.LF3.start + [0, 0, -self.State.e3 * eSizeFactor],
                              ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
 
-        speed = straight_speed_kinematics(self.State.w1, self.State.w2, self.State.w3, self.State.t1, self.State.t2, self.State.t3, self.State.F, self.State.E, self.State.Lf, self.State.Le)
-        self.addLineByPoints(f"speed_{round(getLength(speed), 2)}", self.points.E.center, self.points.E.center + speed,
+        speedSizeFactor = 3
+        speed = np.array(straight_speed_kinematics(self.State.w1, self.State.w2, self.State.w3, self.State.t1, self.State.t2, self.State.t3, self.State.F, self.State.E, self.State.Lf, self.State.Le))
+        self.addLineByPoints(f"speed_{round(getLength(speed), 2)}", self.points.E.center, self.points.E.center + speed * speedSizeFactor,
                              SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
-        acceleration = straight_acceleration_kinematics(self.State.e1, self.State.e2, self.State.e3,
-                                                        self.State.w1, self.State.w2, self.State.w3,
-                                                        self.State.t1, self.State.t2, self.State.t3,
-                                                        self.State.F, self.State.E, self.State.Lf, self.State.Le)
+        acceleration = np.array(straight_acceleration_kinematics(
+            self.State.e1, self.State.e2, self.State.e3,
+            self.State.w1, self.State.w2, self.State.w3,
+            self.State.t1, self.State.t2, self.State.t3,
+            self.State.F, self.State.E, self.State.Lf, self.State.Le)
+        )
+        accelerationSizeFactor = 8
         self.addLineByPoints(f"acceleration_{round(getLength(acceleration), 2)}", self.points.E.center,
-                             self.points.E.center + acceleration,
+                             self.points.E.center + acceleration * accelerationSizeFactor,
                              ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
 
     def update(self):
@@ -324,38 +333,52 @@ class UI:
         self.update()
         self.engine.render()
 
-    def setAngles(self, theta1, theta2, theta3):
+    def setAngles(self, theta1, theta2, theta3, withRerender=True):
         def limitAngle(val: float):
             return max(-pi, min(pi, val))
 
         self.State.t1 = limitAngle(theta1)
         self.State.t2 = limitAngle(theta2)
         self.State.t3 = limitAngle(theta3)
-        self.rerender()
+        if withRerender:
+            self.rerender()
 
-    def setEndPositions(self, x, y, z):
+    def setEndPositions(self, x, y, z, withRerender=True):
         thetas = inverse_kinematics(x, y, z, self.State.F, self.State.E, self.State.Lf, self.State.Le)
 
         self.State.t1 = thetas[0]
         self.State.t2 = thetas[1]
         self.State.t3 = thetas[2]
-        self.rerender()
+        if withRerender:
+            self.rerender()
 
-    def setSpeeds(self, w1, w2, w3):
+    def setSpeeds(self, w1, w2, w3, withRerender=True):
         self.State.w1 = w1
         self.State.w2 = w2
         self.State.w3 = w3
-        self.rerender()
+        if withRerender:
+            self.rerender()
 
-    def setAccelerations(self, e1, e2, e3):
+    def setAccelerations(self, e1, e2, e3, withRerender=True):
         self.State.e1 = e1
         self.State.e2 = e2
         self.State.e3 = e3
-        self.rerender()
+        if withRerender:
+            self.rerender()
 
-    def mainloop(self):
+    def start(self, otherProcessFoo, *args, **kwargs):
+        otherProcessThread = Thread(target=otherProcessFoo, args=args, kwargs=kwargs)
+        otherProcessThread.start()
+
         self.engine.mainloop()
 
+        print(f"🔄 Graceful exiting...")
+        print(f"🔄 Wait for join worker thread to finish...")
+        otherProcessThread.join()
+        print(f"✅ Thread joined")
+        sys.exit(0)
 
+
+# Demo:
 if __name__ == '__main__':
-    UI().mainloop()
+    UI().start(lambda: None)
