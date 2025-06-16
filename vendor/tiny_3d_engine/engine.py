@@ -54,7 +54,8 @@ class Engine3D:
         width:int=1000,
         height:int=700,
         shading:str="flat",
-        background:str="#666699",
+        background:str=None,
+        dark:bool=False,
         title:str="Tiny 3D Engine",
         keyHandlers:dict={},
         actionsHandlers:dict={},
@@ -63,9 +64,13 @@ class Engine3D:
         self.title = title
         self.shading = shading
         self.view = ViewField(width, height)
-        self.screen = Screen(width, height, background, root=root, title=self.title)
+        if background is None:
+            background = "#1e1f22" if dark else "#ffffff"
+        self.screen = Screen(width, height, background, root=root, title=self.title, dark=dark)
         self.back_color = hex_to_rgb(background)
         self.scene = None
+        self.scale = None
+        self.distance = None
         self.screen.can.bind("<MouseWheel>", self.__scale)
         self.screen.can.bind("<B1-Motion>", self.__drag)
         self.screen.can.bind("<Shift-B1-Motion>", self.__shiftdrag)
@@ -78,7 +83,7 @@ class Engine3D:
         self.__dragprev = []
 
         if scene is not None:
-            self.update(scene)
+            self.connectToScene(scene)
 
     def reloadSceneData(self):
         if self.scene is None:
@@ -93,8 +98,9 @@ class Engine3D:
         )
         self.screen.add_tags_bindings(self.scene.parts())
         self.view.update(self.scene.points())
+        self._recalculate_masks()
 
-    def update(self, scene:Scene3D):
+    def connectToScene(self, scene:Scene3D):
         """Update the scene to show."""
         if scene.is_void():
             self.scene = None
@@ -102,7 +108,7 @@ class Engine3D:
         else:
             self.scene = scene
             self.reloadSceneData()
-            self._reset_view()
+        self._reset_view()
 
     def rotate(self, axis:str, angle:float):
         """rotate model around axis"""
@@ -132,7 +138,7 @@ class Engine3D:
             mask = self.stat_visible
 
         ordered_z_indices = np.flip(
-            np.argsort(self.view._initialPts[self.conn[mask, 0], 2])
+            np.argsort(self.view.pts[self.conn[mask, 0], 2])
         )
         reordered_conn = self.conn[mask, :][ordered_z_indices]
         reordered_colors = self.shaded_colors[mask][ordered_z_indices]
@@ -184,6 +190,8 @@ class Engine3D:
     def _reset_view(self):
         self.scale = float(self.view.init_scale)
         self.distance = 64
+
+    def _recalculate_masks(self):
         m_elements = self.conn.shape[0]
 
         self.mot_visible = np.full((m_elements), True)
@@ -201,8 +209,6 @@ class Engine3D:
             self.stat_visible = np.random.choice(
                 a=[True, False], size=(m_elements), p=[p, 1 - p]
             )
-
-        # self.visible[int(m_elements*0.1):] = False
 
     def _compute_shade(self):
         """compute the shading of the scene"""

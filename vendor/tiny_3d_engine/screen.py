@@ -66,18 +66,19 @@ class Screen:
             width,
             height,
             background,
+            dark=False,
             root=None,
             title=None):
         """Startup class"""
         #initialize tkinter window for displaying graphics
 
-        self.holder = self._create_holder(root)
+        self.holder = self._create_holder(root, dark)
         self.motion_allowed = True
         self.help_lbl = tkinter.Label(
             self.holder,
             borderwidth=0,
-            background="#1e1e1e",
-            foreground="#ffffff",
+            background="#1e1e1e" if dark else "#cccccc",
+            foreground="#ffffff" if dark else "#000000",
             text="Command help")
         self.help_lbl.bind("<Button-1>", self.spawn_help_panel)
         self.help_lbl.pack(side="bottom", fill="x")
@@ -140,20 +141,21 @@ c / C : spin 90deg. clockwise / anticl.
 
 
 
-    def _create_holder(self, root):
+    def _create_holder(self, root, dark: bool):
         """Creet the main window if needed"""
         if root is None:
             holder = tkinter.Tk()
             self.standalone = True
             holder.update()
-            DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-            set_window_attribute = ct.windll.dwmapi.DwmSetWindowAttribute
-            get_parent = ct.windll.user32.GetParent
-            hwnd = get_parent(holder.winfo_id())
-            rendering_policy = DWMWA_USE_IMMERSIVE_DARK_MODE
-            value = 2
-            value = ct.c_int(value)
-            set_window_attribute(hwnd, rendering_policy, ct.byref(value), ct.sizeof(value))
+            if dark:
+                DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+                set_window_attribute = ct.windll.dwmapi.DwmSetWindowAttribute
+                get_parent = ct.windll.user32.GetParent
+                hwnd = get_parent(holder.winfo_id())
+                rendering_policy = DWMWA_USE_IMMERSIVE_DARK_MODE
+                value = 2
+                value = ct.c_int(value)
+                set_window_attribute(hwnd, rendering_policy, ct.byref(value), ct.sizeof(value))
         else:
             #holder = tkinter.ttk.Frame(root, name="3D view holder")
             holder = root

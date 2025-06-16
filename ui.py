@@ -1,9 +1,10 @@
 import sys
 from dataclasses import dataclass
 from math import *
+from typing import Callable
 
 from src.acceleration_kinematics import straight_acceleration_kinematics
-from src.speed_kinematics import straight_speed_kinematics
+from src.speed_kinematics import straight_speed_kinematics, inverse_speed_kinematics
 from vendor.tiny_3d_engine.scene3d import Scene3D
 from vendor.tiny_3d_engine.engine import Engine3D
 from threading import Thread
@@ -70,15 +71,23 @@ def getLength(pointOrVector, fromPointIfPoint=[0, 0, 0]):
 
 
 class UI:
-    def __init__(self):
+    def __init__(self, traceEndpoint=False, dark=False):
+        self.traceEndpoint = False
+        self.endpointTracing = []
+        self.userObjects = []
+        self.dark = dark
+        self.engine = None
+
         self.scene = Scene3D("World")
         self.update()
+
+        self.traceEndpoint = traceEndpoint
 
         ANGLE_DELTA = degToRad(5)
         SPEED_DELTA = 0.1
         ACCELERATION_DELTA = 0.1
         POSITION_DELTA = 0.1
-        self.engine = Engine3D(self.scene, background="#1e1f22", shading="radial", keyHandlers={
+        self.engine = Engine3D(self.scene, dark=dark, shading="flat", keyHandlers={
             "exclam": lambda _: self.setAngles(self.State.t1 + ANGLE_DELTA, self.State.t2, self.State.t3),
             "1": lambda _: self.setAngles(self.State.t1 - ANGLE_DELTA, self.State.t2, self.State.t3),
             "at": lambda _: self.setAngles(self.State.t1, self.State.t2 + ANGLE_DELTA, self.State.t3),
@@ -86,26 +95,32 @@ class UI:
             "numbersign": lambda _: self.setAngles(self.State.t1, self.State.t2, self.State.t3 + ANGLE_DELTA),
             "3": lambda _: self.setAngles(self.State.t1, self.State.t2, self.State.t3 - ANGLE_DELTA),
 
-            "Q": lambda _: self.setSpeeds(self.State.w1 + SPEED_DELTA, self.State.w2, self.State.w3),
-            "q": lambda _: self.setSpeeds(self.State.w1 - SPEED_DELTA, self.State.w2, self.State.w3),
-            "W": lambda _: self.setSpeeds(self.State.w1, self.State.w2 + SPEED_DELTA, self.State.w3),
-            "w": lambda _: self.setSpeeds(self.State.w1, self.State.w2 - SPEED_DELTA, self.State.w3),
-            "E": lambda _: self.setSpeeds(self.State.w1, self.State.w2, self.State.w3 + SPEED_DELTA),
-            "e": lambda _: self.setSpeeds(self.State.w1, self.State.w2, self.State.w3 - SPEED_DELTA),
+            "Q": lambda _: self.setAngleSpeeds(self.State.w1 + SPEED_DELTA, self.State.w2, self.State.w3),
+            "q": lambda _: self.setAngleSpeeds(self.State.w1 - SPEED_DELTA, self.State.w2, self.State.w3),
+            "W": lambda _: self.setAngleSpeeds(self.State.w1, self.State.w2 + SPEED_DELTA, self.State.w3),
+            "w": lambda _: self.setAngleSpeeds(self.State.w1, self.State.w2 - SPEED_DELTA, self.State.w3),
+            "E": lambda _: self.setAngleSpeeds(self.State.w1, self.State.w2, self.State.w3 + SPEED_DELTA),
+            "e": lambda _: self.setAngleSpeeds(self.State.w1, self.State.w2, self.State.w3 - SPEED_DELTA),
 
-            "A": lambda _: self.setAccelerations(self.State.e1 + ACCELERATION_DELTA, self.State.e2, self.State.e3),
-            "a": lambda _: self.setAccelerations(self.State.e1 - ACCELERATION_DELTA, self.State.e2, self.State.e3),
-            "S": lambda _: self.setAccelerations(self.State.e1, self.State.e2 + ACCELERATION_DELTA, self.State.e3),
-            "s": lambda _: self.setAccelerations(self.State.e1, self.State.e2 - ACCELERATION_DELTA, self.State.e3),
-            "D": lambda _: self.setAccelerations(self.State.e1, self.State.e2, self.State.e3 + ACCELERATION_DELTA),
-            "d": lambda _: self.setAccelerations(self.State.e1, self.State.e2, self.State.e3 - ACCELERATION_DELTA),
+            "A": lambda _: self.setAngleAccelerations(self.State.e1 + ACCELERATION_DELTA, self.State.e2, self.State.e3),
+            "a": lambda _: self.setAngleAccelerations(self.State.e1 - ACCELERATION_DELTA, self.State.e2, self.State.e3),
+            "S": lambda _: self.setAngleAccelerations(self.State.e1, self.State.e2 + ACCELERATION_DELTA, self.State.e3),
+            "s": lambda _: self.setAngleAccelerations(self.State.e1, self.State.e2 - ACCELERATION_DELTA, self.State.e3),
+            "D": lambda _: self.setAngleAccelerations(self.State.e1, self.State.e2, self.State.e3 + ACCELERATION_DELTA),
+            "d": lambda _: self.setAngleAccelerations(self.State.e1, self.State.e2, self.State.e3 - ACCELERATION_DELTA),
 
-            "x": lambda _: self.setEndPosition(self.points.E.center[0] + POSITION_DELTA, self.points.E.center[1], self.points.E.center[2]),
-            "X": lambda _: self.setEndPosition(self.points.E.center[0] - POSITION_DELTA, self.points.E.center[1], self.points.E.center[2]),
-            "y": lambda _: self.setEndPosition(self.points.E.center[0], self.points.E.center[1] + POSITION_DELTA, self.points.E.center[2]),
-            "Y": lambda _: self.setEndPosition(self.points.E.center[0], self.points.E.center[1] - POSITION_DELTA, self.points.E.center[2]),
-            "z": lambda _: self.setEndPosition(self.points.E.center[0], self.points.E.center[1], self.points.E.center[2] + POSITION_DELTA),
-            "Z": lambda _: self.setEndPosition(self.points.E.center[0], self.points.E.center[1], self.points.E.center[2] - POSITION_DELTA),
+            "x": lambda _: self.setEndPosition(self.points.E.center[0] + POSITION_DELTA, self.points.E.center[1],
+                                               self.points.E.center[2]),
+            "X": lambda _: self.setEndPosition(self.points.E.center[0] - POSITION_DELTA, self.points.E.center[1],
+                                               self.points.E.center[2]),
+            "y": lambda _: self.setEndPosition(self.points.E.center[0], self.points.E.center[1] + POSITION_DELTA,
+                                               self.points.E.center[2]),
+            "Y": lambda _: self.setEndPosition(self.points.E.center[0], self.points.E.center[1] - POSITION_DELTA,
+                                               self.points.E.center[2]),
+            "z": lambda _: self.setEndPosition(self.points.E.center[0], self.points.E.center[1],
+                                               self.points.E.center[2] + POSITION_DELTA),
+            "Z": lambda _: self.setEndPosition(self.points.E.center[0], self.points.E.center[1],
+                                               self.points.E.center[2] - POSITION_DELTA),
         })
         self.engine.rotate("x", 45)
         self.engine.render()
@@ -128,6 +143,18 @@ class UI:
         e1 = 0
         e2 = 0
         e3 = 0
+
+        x = 0
+        y = 0
+        z = 0
+
+        vx = 0
+        vy = 0
+        vz = 0
+
+        ax = 0
+        ay = 0
+        az = 0
 
     @dataclass
     class points:
@@ -198,6 +225,44 @@ class UI:
     def addLine(self, name: str, line, color: str, width=1):
         self.addLineByPoints(name, line.start, line.end, color, width)
 
+    def addPolylineByPoints(self, name: str, points: list, color: str, width=1):
+        conn = []
+        for i in range(len(points)):
+            if i < len(points) - 1:
+                conn.append([i, i + 1])
+        if len(points) <= 1:
+            return
+        self.scene.update(
+            name=name,
+            points=points,
+            conn=conn,
+            color=color,
+        )
+
+    def addPoint(self, name: str, point: list, color: str, width=10):
+        self.scene.update(
+            name=name,
+            points=[point],
+            conn=[[0]],
+            color=color,
+            width=width,
+        )
+
+    def addArrow(self, name: str, start: list, end: list, color: str, width=1):
+        if not self.engine or not self.engine.scale:
+            return
+        start = np.array(start)
+        end = np.array(end)
+        ds = 10 / self.engine.scale
+        dz = np.sign(end[2] - start[2]) * ds
+        self.scene.update(
+            name=name,
+            points=[start, end, end + [-ds, 0, -dz], end + [ds, 0, -dz], end + [0, -ds, -dz], end + [0, ds, -dz]],
+            conn=[[0, 1], [1, 2], [1, 3], [1, 4], [1, 5]],
+            color=color,
+            width=width,
+        )
+
     # ---- AXIS
     def addAxes(self):
         # self.scene.add_axes('zero')
@@ -221,6 +286,9 @@ class UI:
             [axesLength, 0, 0],
             "#ff0000",
         )
+
+    def addUserObject(self, foo: Callable, args: list = []):
+        self.userObjects.append([foo, args])
 
     # ---- GEOMETRY
     def calculateDeltaRobotPoints(self, F, E, Lf, Le, theta1, theta2, theta3):
@@ -265,6 +333,13 @@ class UI:
         SPEEDS_LINES_WIDTHS = 1
         ACCELERATIONS_LINES_COLOR = "#ff00ff"
         ACCELERATIONS_LINES_WIDTHS = 3
+        SPEED_LENGTH_FACTOR = 0.05
+        ACC_LENGTH_FACTOR = 0.05
+        OMEGA_LENGTH_FACTOR = 0.05
+        EPS_LENGTH_FACTOR = 0.05
+        TRACING_COLOR = "#ffffff" if self.dark else "#000000"
+        TRACING_WIDTH = 1
+
         self.addTriangle("TopBase", self.points.F, TOP_BASE_COLOR)
 
         self.addLine(f"Lf1_{round(getLength(self.points.LF1.start, self.points.LF1.end), 2)}", self.points.LF1,
@@ -284,48 +359,53 @@ class UI:
             f"BottomBase_x:{round(self.points.E.center[0], 2)}_y:{round(self.points.E.center[1], 2)}_z:{round(self.points.E.center[2], 2)}",
             self.points.E, BOTTOM_BASE_COLOR)
 
-        wSizeFactor = 3
-        self.addLineByPoints(f"w1_{round(self.State.w1, 2)}", self.points.LF1.start,
-                             self.points.LF1.start + [0, 0, -self.State.w1 * wSizeFactor],
-                             SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
-        self.addLineByPoints(f"w2_{round(self.State.w2, 2)}", self.points.LF2.start,
-                             self.points.LF2.start + [0, 0, -self.State.w2 * wSizeFactor],
-                             SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
-        self.addLineByPoints(f"w3_{round(self.State.w3, 2)}", self.points.LF3.start,
-                             self.points.LF3.start + [0, 0, -self.State.w3 * wSizeFactor],
-                             SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
+        self.addArrow(f"w1_{round(self.State.w1, 2)}", self.points.LF1.start,
+                      self.points.LF1.start + [0, 0, -self.State.w1 * OMEGA_LENGTH_FACTOR],
+                      SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
+        self.addArrow(f"w2_{round(self.State.w2, 2)}", self.points.LF2.start,
+                      self.points.LF2.start + [0, 0, -self.State.w2 * OMEGA_LENGTH_FACTOR],
+                      SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
+        self.addArrow(f"w3_{round(self.State.w3, 2)}", self.points.LF3.start,
+                      self.points.LF3.start + [0, 0, -self.State.w3 * OMEGA_LENGTH_FACTOR],
+                      SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
 
-        eSizeFactor = 5
-        self.addLineByPoints(f"e1_{round(self.State.e1, 2)}", self.points.LF1.start,
-                             self.points.LF1.start + [0, 0, -self.State.e1 * eSizeFactor],
-                             ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
-        self.addLineByPoints(f"e2_{round(self.State.e2, 2)}", self.points.LF2.start,
-                             self.points.LF2.start + [0, 0, -self.State.e2 * eSizeFactor],
-                             ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
-        self.addLineByPoints(f"e3_{round(self.State.e3, 2)}", self.points.LF3.start,
-                             self.points.LF3.start + [0, 0, -self.State.e3 * eSizeFactor],
-                             ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
+        self.addArrow(f"e1_{round(self.State.e1, 2)}", self.points.LF1.start,
+                      self.points.LF1.start + [0, 0, -self.State.e1 * EPS_LENGTH_FACTOR],
+                      ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
+        self.addArrow(f"e2_{round(self.State.e2, 2)}", self.points.LF2.start,
+                      self.points.LF2.start + [0, 0, -self.State.e2 * EPS_LENGTH_FACTOR],
+                      ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
+        self.addArrow(f"e3_{round(self.State.e3, 2)}", self.points.LF3.start,
+                      self.points.LF3.start + [0, 0, -self.State.e3 * EPS_LENGTH_FACTOR],
+                      ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
 
-        speedSizeFactor = 3
-        speed = np.array(straight_speed_kinematics(self.State.w1, self.State.w2, self.State.w3, self.State.t1, self.State.t2, self.State.t3, self.State.F, self.State.E, self.State.Lf, self.State.Le))
-        self.addLineByPoints(f"speed_{round(getLength(speed), 2)}", self.points.E.center, self.points.E.center + speed * speedSizeFactor,
+        speed = np.array([self.State.vx, self.State.vy, self.State.vz])
+        self.addLineByPoints(f"speed_{round(getLength(speed), 2)}", self.points.E.center,
+                             self.points.E.center + speed * SPEED_LENGTH_FACTOR,
                              SPEEDS_LINES_COLOR, SPEEDS_LINES_WIDTHS)
-        acceleration = np.array(straight_acceleration_kinematics(
-            self.State.e1, self.State.e2, self.State.e3,
-            self.State.w1, self.State.w2, self.State.w3,
-            self.State.t1, self.State.t2, self.State.t3,
-            self.State.F, self.State.E, self.State.Lf, self.State.Le)
-        )
-        accelerationSizeFactor = 8
+        # acceleration = np.array(straight_acceleration_kinematics(
+        #     self.State.e1, self.State.e2, self.State.e3,
+        #     self.State.w1, self.State.w2, self.State.w3,
+        #     self.State.t1, self.State.t2, self.State.t3,
+        #     self.State.F, self.State.E, self.State.Lf, self.State.Le)
+        # )
+        acceleration = np.array([self.State.ax, self.State.ay, self.State.az])
         self.addLineByPoints(f"acceleration_{round(getLength(acceleration), 2)}", self.points.E.center,
-                             self.points.E.center + acceleration * accelerationSizeFactor,
+                             self.points.E.center + acceleration * ACC_LENGTH_FACTOR,
                              ACCELERATIONS_LINES_COLOR, ACCELERATIONS_LINES_WIDTHS)
+
+        if self.traceEndpoint:
+            self.addPolylineByPoints("tracing", self.endpointTracing, TRACING_COLOR, TRACING_WIDTH)
 
     def update(self):
         self.scene.clear()
         self.calculateDeltaRobotPoints(self.State.F, self.State.E, self.State.Lf, self.State.Le,
                                        self.State.t1, self.State.t2, self.State.t3)
+        if self.traceEndpoint:
+            self.endpointTracing.append(self.points.E.center)
         self.addDeltaRobotToScene()
+        for userObject in self.userObjects:
+            userObject[0](*userObject[1])
         self.addAxes()
 
     def rerender(self):
@@ -340,10 +420,37 @@ class UI:
         self.State.t1 = limitAngle(theta1)
         self.State.t2 = limitAngle(theta2)
         self.State.t3 = limitAngle(theta3)
+        x, y, z = straight_kinematics(theta1, theta2, theta3, self.State.F, self.State.E, self.State.Lf, self.State.Le)
+        self.State.x = x
+        self.State.y = y
+        self.State.z = z
         if withRerender:
             self.rerender()
 
-    def setEndPositions(self, x, y, z, withRerender=True):
+    def setAngleSpeeds(self, w1, w2, w3, withRerender=True):
+        self.State.w1 = w1
+        self.State.w2 = w2
+        self.State.w3 = w3
+        vx, vy, vz = straight_speed_kinematics(self.State.w1, self.State.w2, self.State.w3, self.State.t1,
+                                               self.State.t2, self.State.t3, self.State.F, self.State.E, self.State.Lf,
+                                               self.State.Le)
+        self.State.vx = vx
+        self.State.vy = vy
+        self.State.vz = vz
+        if withRerender:
+            self.rerender()
+
+    def setAngleAccelerations(self, e1, e2, e3, withRerender=True):
+        self.State.e1 = e1
+        self.State.e2 = e2
+        self.State.e3 = e3
+        if withRerender:
+            self.rerender()
+
+    def setPosition(self, x, y, z, withRerender=True):
+        self.State.x = x
+        self.State.y = y
+        self.State.z = z
         thetas = inverse_kinematics(x, y, z, self.State.F, self.State.E, self.State.Lf, self.State.Le)
 
         self.State.t1 = thetas[0]
@@ -352,17 +459,22 @@ class UI:
         if withRerender:
             self.rerender()
 
-    def setSpeeds(self, w1, w2, w3, withRerender=True):
+    def setSpeeds(self, vx, vy, vz, withRerender=True):
+        self.State.vx = vx
+        self.State.vy = vy
+        self.State.vz = vz
+        w1, w2, w3 = inverse_speed_kinematics(self.State.vx, self.State.vy, self.State.vz, self.State.x, self.State.y,
+                                              self.State.z, self.State.F, self.State.E, self.State.Lf, self.State.Le)
         self.State.w1 = w1
         self.State.w2 = w2
         self.State.w3 = w3
         if withRerender:
             self.rerender()
 
-    def setAccelerations(self, e1, e2, e3, withRerender=True):
-        self.State.e1 = e1
-        self.State.e2 = e2
-        self.State.e3 = e3
+    def setAccelerations(self, ax, ay, az, withRerender=True):
+        self.State.ax = ax
+        self.State.ay = ay
+        self.State.az = az
         if withRerender:
             self.rerender()
 
